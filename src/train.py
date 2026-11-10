@@ -55,6 +55,7 @@ def predict_proba(model, loader, device):
 
 def fit(graph, col_stats, train_table, val_table, device, seed=0, log=print):
     seed_everything(seed)
+    torch.use_deterministic_algorithms(True, warn_only=True)  # reproducible runs (warns where CUDA has no deterministic kernel)
     model = make_model(graph, col_stats, device)
     optimizer = torch.optim.Adam(model.parameters(), lr=TRAIN["lr"])
     loss_fn = torch.nn.BCEWithLogitsLoss()

@@ -1,15 +1,17 @@
-"""Final prediction: the 6 activities of every user in test_input.csv for 2026/11/12 00:00 - 11/19 00:00 (Taiwan).
+"""Final prediction: the 6 activities of every user in test_input.csv for 2026/11/22 00:00 - 11/29 00:00 (Taiwan).
 
-The test seed time is 2026-11-11 12:00 UTC (= 20:00 Taiwan, the last data update); the predicted week
-[seed + 4 h, seed + 4 h + 7 d) is then 11/11 16:00 - 11/18 16:00 UTC = 11/12 00:00 - 11/19 00:00 Taiwan.
+Our data ends at 2026-11-20 16:00 UTC (= 11/21 00:00 Taiwan, the test seed time); the predicted week
+[seed + 1 d, seed + 8 d) is then 11/21 16:00 - 11/28 16:00 UTC = 11/22 00:00 - 11/29 00:00 Taiwan.
 RelGNN is trained on all labelled daily cutoffs (the last labelled week selects the epoch), several models are
 averaged, and the plug-in expected-F1 rule gives the 0/1 predictions.
 
-    python src/predict.py --data assignment2 --out .      # writes ./output_414540015.csv
+    python src/predict.py --data data --test_input assignment2/submission/test_input.csv --out .
 """
 import argparse
 import os
 import time
+
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")  # deterministic cuBLAS (set before CUDA starts)
 
 import numpy as np
 import pandas as pd
@@ -22,10 +24,12 @@ from data import GAP, HORIZON, TARGETS, AssignmentData
 from graph import build_graph
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--data", default="assignment2", help="folder of the cloned assignment repository")
+ap.add_argument("--data", default="data", help="output folder of the course preprocess.py (contains db/)")
+ap.add_argument("--test_input", default="assignment2/submission/test_input.csv")
 ap.add_argument("--student_id", default="414540015")
-ap.add_argument("--test_time", default="2026-11-11 12:00", help="seed time of the test week (UTC)")
-ap.add_argument("--start", default="2026-03-01 12:00", help="first training cutoff")
+ap.add_argument("--test_time", default="2026-11-20 16:00", help="seed time of the test week (UTC) = end of our data")
+ap.add_argument("--start", default="2026-06-15 16:00",
+                help="first training cutoff (UTC) whose user-selection window lies inside the data (from 2026-03-01)")
 ap.add_argument("--seeds", type=int, default=2, help="number of RelGNN models averaged")
 ap.add_argument("--out", default=".")
 a = ap.parse_args()
@@ -38,9 +42,9 @@ if data.data_end < T - pd.Timedelta(hours=1):
     print(f"WARNING: data ends {data.data_end}, before the test seed time {T}: this is not the final release")
 cutoffs = task.labelled_cutoffs(data, a.start)
 train_c, val_c = task.split_by_time(cutoffs, cutoffs[-1] + GAP + HORIZON)  # all labelled cutoffs are usable
-ids = pd.read_csv(os.path.join(a.data, "evaluation", "test_input.csv")).UserID.astype(np.int64).to_numpy()
+ids = pd.read_csv(a.test_input).UserID.astype(np.int64).to_numpy()
 known = np.isin(ids, data.row_id.index)  # all test users are cohort users; this only guards the output format
-print(f"data end {data.data_end}, push lag {data.push_lag}; test seed time {T}; {len(ids)} test users "
+print(f"data end {data.data_end}; test seed time {T}; {len(ids)} test users "
       f"({(~known).sum()} unknown); train cutoffs {train_c[0]:%m-%d} .. {train_c[-1]:%m-%d}, "
       f"validation {val_c[0]:%m-%d} .. {val_c[-1]:%m-%d}", flush=True)
 

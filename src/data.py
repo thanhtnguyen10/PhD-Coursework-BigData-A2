@@ -1,8 +1,9 @@
-"""Assignment data: the 8 Parquet tables, the cohort activity log, the test-user rule and the 6 labels.
+"""Assignment data: the 8 tables written by the course script preprocess.py, the cohort activity log, the
+test-user rule and the 6 labels.
 
-`data_root` is the folder created by
-    git clone --depth 1 https://github.com/nycubigdata-2026fall/BigData2026-Assignment2.git assignment2
-(it contains data/db/*.parquet and evaluation/).
+`data_root` is the output folder of
+    python assignment2/scripts/preprocess.py --raw RAW_DATA_FOLDER --out data_root
+(it contains db/*.parquet).
 """
 import os
 
@@ -10,11 +11,13 @@ import numpy as np
 import pandas as pd
 
 TARGETS = ["open_pr", "open_issue", "issue_comment", "pr_review", "pr_review_comment", "push"]
-GAP = pd.Timedelta(hours=4)           # last data update (20:00 Taiwan) -> start of the predicted week (00:00 Taiwan)
+GAP = pd.Timedelta(days=1)            # end of our data (00:00 Taiwan) -> start of the predicted week (00:00 Taiwan, next day)
 HORIZON = pd.Timedelta(days=7)        # length of the predicted week
-SELECT_LAG = pd.Timedelta(days=14)    # test users are selected 14 days before the last data update ...
-SELECT_WINDOW = pd.Timedelta(days=90)  # ... among cohort users with at least
-SELECT_MIN = 5                        # 5 activity records in the 90 days before
+# Test-user rule, reproduced exactly on test_input.csv (4,465 users): cohort users with >= 3 activity records in the
+# 90 days before 2026-11-04 12:00 UTC, i.e. 16 d 4 h before the test seed time 2026-11-20 16:00 UTC.
+SELECT_LAG = pd.Timedelta(days=16, hours=4)
+SELECT_WINDOW = pd.Timedelta(days=90)
+SELECT_MIN = 3
 
 
 class AssignmentData:
@@ -45,18 +48,17 @@ class AssignmentData:
         ev = ev[ev.user_id.isin(set(self.cohort))]
         ev["user_id"] = ev.user_id.astype(np.int64)
         self.events = ev.sort_values("t").reset_index(drop=True)
-        # end of the data in this release (the final release ends at 11/11 12:00 UTC = 20:00 Taiwan)
+        # end of the processed period, rounded up to the hour (hour files; the submitted run ends at
+        # 2026-11-20 16:00 UTC = 11/21 00:00 Taiwan)
         self.data_end = max(icom.created_at.max(), prs.first_seen_at.max(), issues.first_seen_at.max(),
-                            reviews.first_seen_at.max(), pushes.created_at.max())
-        # pushes may lag behind the other tables in a release; the same lag is applied at every cutoff (graph.py)
-        lag = self.data_end - pushes.created_at.max()
-        self.push_lag = lag.ceil("h") if lag > pd.Timedelta(hours=3) else pd.Timedelta(0)
+                            reviews.first_seen_at.max(), pushes.created_at.max()).ceil("h")
 
     def read(self, table, columns=None):
-        return pd.read_parquet(os.path.join(self.root, "data", "db", f"{table}.parquet"), columns=columns)
+        return pd.read_parquet(os.path.join(self.root, "db", f"{table}.parquet"), columns=columns)
 
     def select_users(self, t):
-        """Test-user rule: cohort users with >= 5 activity records in the 90 days before t - 14 d."""
+        """Test-user rule: cohort users with >= 3 activity records in the 90 days before t - 16 d 4 h
+        (only rows that exist at that time)."""
         s = t - SELECT_LAG
         e = self.events
         e = e[(e.seen < s) & (e.t >= s - SELECT_WINDOW) & (e.t < s)]
@@ -64,7 +66,7 @@ class AssignmentData:
         return np.sort(n.index[n >= SELECT_MIN].to_numpy())
 
     def labels(self, t, users):
-        """1 if the user did the activity in [t + 4 h, t + 4 h + 7 d), else 0."""
+        """1 if the user did the activity in [t + 1 d, t + 8 d), else 0."""
         e = self.events
         e = e[(e.t >= t + GAP) & (e.t < t + GAP + HORIZON)]
         y = pd.crosstab(e.user_id, e.type).reindex(index=users, columns=range(len(TARGETS)), fill_value=0)

@@ -1,7 +1,7 @@
 """Seeds of the entity-classification task: one row per (user, cutoff t) with the 6 labels of the following week.
 
 This is the RelBench "task table" (entity = Users, time = seed time, multi-label target). Training seeds use
-the official test design: users chosen by the test-user rule at t, labels in [t + 4 h, t + 4 h + 7 d).
+the official test design: users chosen by the test-user rule at t, labels in [t + 1 d, t + 8 d).
 """
 import numpy as np
 import pandas as pd
@@ -10,7 +10,8 @@ from data import GAP, HORIZON, TARGETS
 
 
 def labelled_cutoffs(data, start):
-    """Daily cutoffs at 12:00 UTC (= 20:00 Taiwan, the daily update time) whose label week has ended in the data."""
+    """Daily cutoffs from `start` (16:00 UTC = 00:00 Taiwan, like the test seed time) whose label week has ended
+    in the data."""
     return list(pd.date_range(start, data.data_end - GAP - HORIZON, freq="1D"))
 
 

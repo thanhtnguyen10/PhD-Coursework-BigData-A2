@@ -1,6 +1,6 @@
 """Official score and the decision rule that turns probabilities into 0/1 predictions.
 
-score(): Score = (macro-F1 + micro-F1) / 2 over the 6 activities, computed as in evaluation/evaluate.py.
+score(): Score = (macro-F1 + micro-F1) / 2 over the 6 activities, computed as in the course scripts/evaluate.py.
 expected_f1_predict(): for each activity, mark the top-m_k users as 1, with m_k chosen to maximise the expected
 Score under the predicted probabilities (expected TP = sum of the selected probabilities). No labels are needed,
 so the number of predicted positives adapts to the test week itself.

@@ -11,8 +11,7 @@ This file decides what goes into the graph:
   * the columns known only later are not used at all: PullRequests.merged_at, PullRequests.merged_by_id (also not
     used as a foreign key, so a merge after t can never appear as an edge), PullRequests.closed_at,
     Issues.closed_at, Issues.state_reason, PRReviews.dismissed_at;
-  * ids, free text and absolute timestamps are not used as features;
-  * push rows are shifted by the push lag of the release (data.AssignmentData.push_lag).
+  * ids, codes, masked text (branch names, titles, ...) and absolute timestamps are not used as features.
 """
 import pandas as pd
 from torch_frame import stype
@@ -35,14 +34,14 @@ def _num(s, fill):
 def build_database(data):
     u = data.read("Users", ["user_id", "is_bot", "is_cohort", "first_seen_at"])
     r = data.read("Repositories", ["repo_id", "org_id", "first_seen_at"])
-    p = data.read("PullRequests", ["pr_id", "repo_id", "author_id", "draft", "is_cross_repo", "base_ref", "first_seen_at"])
+    p = data.read("PullRequests", ["pr_id", "repo_id", "author_id", "draft", "is_cross_repo", "first_seen_at"])
     i = data.read("Issues", ["issue_id", "repo_id", "author_id", "assignee_id", "pull_request_id", "is_pull_request",
                              "num_labels", "issue_type", "locked", "created_via_app", "first_seen_at"])
     c = data.read("IssueComments", ["comment_id", "issue_id", "repo_id", "author_id", "is_pull_request", "via_app", "created_at"])
     v = data.read("PRReviews", ["review_id", "pr_id", "repo_id", "reviewer_id", "state", "first_seen_at"])
     m = data.read("PRReviewComments", ["comment_id", "pr_id", "repo_id", "author_id", "pull_request_review_id",
                                        "in_reply_to_id", "file_extension", "subject_type", "position", "original_position", "created_at"])
-    s = data.read("Pushes", ["push_id", "user_id", "repo_id", "branch", "created_at"])
+    s = data.read("Pushes", ["push_id", "user_id", "repo_id", "ref_type", "is_new_ref", "created_at"])
     tables = {
         "Users": Table(pd.DataFrame({
             "user_id": u.user_id, "is_bot": _cat(u.is_bot), "is_cohort": _cat(u.is_cohort), "time": u.first_seen_at}),
@@ -52,8 +51,7 @@ def build_database(data):
             {}, "repo_id", "time"),
         "PullRequests": Table(pd.DataFrame({
             "pr_id": p.pr_id, "repo_id": _fk(p.repo_id), "author_id": _fk(p.author_id), "draft": _cat(p.draft),
-            "is_cross_repo": _cat(p.is_cross_repo), "base_default": _cat(p.base_ref.isin(["main", "master"])),
-            "time": p.first_seen_at}),
+            "is_cross_repo": _cat(p.is_cross_repo), "time": p.first_seen_at}),
             {"repo_id": "Repositories", "author_id": "Users"}, "pr_id", "time"),
         "Issues": Table(pd.DataFrame({
             "issue_id": i.issue_id, "repo_id": _fk(i.repo_id), "author_id": _fk(i.author_id),
@@ -79,7 +77,7 @@ def build_database(data):
              "pull_request_review_id": "PRReviews", "in_reply_to_id": "PRReviewComments"}, "comment_id", "time"),
         "Pushes": Table(pd.DataFrame({
             "push_id": s.push_id, "user_id": _fk(s.user_id), "repo_id": _fk(s.repo_id),
-            "default_branch": _cat(s.branch.isin(["main", "master"])), "time": s.created_at + data.push_lag}),
+            "ref_type": _cat(s.ref_type), "is_new_ref": _cat(s.is_new_ref), "time": s.created_at}),
             {"user_id": "Users", "repo_id": "Repositories"}, "push_id", "time"),
     }
     col_to_stype = {}  # node features: all columns except primary key, foreign keys and row time
