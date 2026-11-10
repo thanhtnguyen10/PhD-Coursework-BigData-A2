@@ -6,7 +6,7 @@ every table is a node type, every row a node, every foreign key an edge type `f2
 time, used by the temporal neighbour sampler.
 
 This file decides what goes into the graph:
-  * row time = the table's row-time column (first_seen_at or created_at, as in data/README.md), so sampling at
+  * row time = the table's row-time column (first_seen_at or created_at, as in the course README.md and SCHEMA.md), so sampling at
     seed time t only reaches rows that exist at t;
   * the columns known only later are not used at all: PullRequests.merged_at, PullRequests.merged_by_id (also not
     used as a foreign key, so a merge after t can never appear as an edge), PullRequests.closed_at,

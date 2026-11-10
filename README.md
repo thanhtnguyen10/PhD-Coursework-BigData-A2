@@ -67,7 +67,8 @@ pip install --no-deps pytorch-frame==0.2.3
 pip install --no-deps "pyg-lib==0.4.0+pt26cu124" -f https://data.pyg.org/whl/torch-2.6.0+cu124.html
 ```
 
-One GPU with about 12 GB of memory is enough.
+One GPU is enough: in our runs (RTX 3090) the peak GPU memory was 10.7 GiB and one model took about 75 minutes,
+so `predict.py` (2 models) takes about 2.5 hours.
 
 ## Method
 

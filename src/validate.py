@@ -39,7 +39,7 @@ graph, col_stats = build_graph(data)
 cutoffs = task.labelled_cutoffs(data, a.start)
 print(f"data end {data.data_end}, last labelled cutoff {cutoffs[-1]}", flush=True)
 for v in [pd.Timestamp(w) for w in a.weeks.split(",")]:
-    assert v in cutoffs, f"{v} has no complete label week in this release"
+    assert v in cutoffs, f"{v} has no complete label week in the data"
     train_c, val_c = task.split_by_time(cutoffs, v)
     tr, va, te = task.task_table(data, train_c), task.task_table(data, val_c), task.task_table(data, [v])
     print(f"week {v}: train {len(tr):,} seeds ({train_c[0]:%m-%d} .. {train_c[-1]:%m-%d}), "

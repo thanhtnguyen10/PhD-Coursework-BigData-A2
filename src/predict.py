@@ -39,7 +39,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 data = AssignmentData(a.data)
 T = pd.Timestamp(a.test_time)
 if data.data_end < T - pd.Timedelta(hours=1):
-    print(f"WARNING: data ends {data.data_end}, before the test seed time {T}: this is not the final release")
+    print(f"WARNING: data ends {data.data_end}, before the test seed time {T}: download the hour files up to 2026-11-20-15 (UTC)")
 cutoffs = task.labelled_cutoffs(data, a.start)
 train_c, val_c = task.split_by_time(cutoffs, cutoffs[-1] + GAP + HORIZON)  # all labelled cutoffs are usable
 ids = pd.read_csv(a.test_input).UserID.astype(np.int64).to_numpy()
