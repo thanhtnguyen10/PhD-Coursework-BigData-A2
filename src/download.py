@@ -1,15 +1,9 @@
-"""Download the GH Archive hour files used by this project (https://www.gharchive.org) with wget, as in the
-course README.
-
-Default period (the one used for the submitted output): hour files 2026-03-01-0 to 2026-11-18-15 (UTC),
-i.e. all events from 2026-03-01 00:00 UTC to 2026-11-18 16:00 UTC = 2026-03-01 08:00 to 2026-11-19 00:00 Taiwan.
+"""Download GH Archive hour files with wget. Default: 2026-03-01-0 .. 2026-11-18-15 (UTC) = 03/01 08:00 - 11/19
+00:00 Taiwan, the period used for the submitted output.
 
     python src/download.py --raw RAW_DATA_FOLDER
-    python src/download.py --raw RAW_DATA_FOLDER --start "2026-03-01 00:00" --end "2026-11-18 15:00"
 
-Files already in RAW_DATA_FOLDER are skipped. A file is saved only when wget finished without error, so an
-interrupted download never leaves a truncated file. Hours that are still missing afterwards are listed (a few
-hours are missing in GH Archive itself).
+Existing files are skipped, a file is kept only if wget finished, and missing hours are listed at the end.
 """
 import argparse
 import os
@@ -22,7 +16,7 @@ URL = "https://data.gharchive.org/{}.json.gz"
 
 
 def name(h):
-    return f"{h:%Y-%m-%d}-{h.hour}"  # GH Archive file names use the hour without a leading zero
+    return f"{h:%Y-%m-%d}-{h.hour}"  # hour without leading zero, as GH Archive names files
 
 
 def main():

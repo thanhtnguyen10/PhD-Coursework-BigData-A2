@@ -1,8 +1,4 @@
-"""Seeds of the entity-classification task: one row per (user, cutoff t) with the 6 labels of the following week.
-
-This is the RelBench "task table" (entity = Users, time = seed time, multi-label target). Training seeds use
-the official test design: users chosen by the test-user rule at t, labels in [t + gap, t + gap + 7 d).
-"""
+"""Task table (RelBench style): one seed per (user, cutoff t), users by the test-user rule, 6 labels."""
 import numpy as np
 import pandas as pd
 
@@ -10,8 +6,7 @@ from data import GAP, HORIZON, TARGETS
 
 
 def labelled_cutoffs(data, start):
-    """Daily cutoffs from `start` (16:00 UTC = 00:00 Taiwan, like the test seed time) whose label week has ended
-    in the data."""
+    """Daily cutoffs from `start` whose label week has ended in the data."""
     return list(pd.date_range(start, data.data_end - data.gap - HORIZON, freq="1D"))
 
 
@@ -25,8 +20,7 @@ def task_table(data, cutoffs, users=None, with_labels=True):
 
 
 def split_by_time(cutoffs, v, gap=GAP):
-    """Split for predicting at cutoff v: usable cutoffs are those whose label week has ended by v; the last 7 of
-    them form the validation week (epoch selection); training cutoffs have label weeks that end before it."""
+    """Cutoffs whose label week ends by v: the last 7 select the epoch; training cutoffs' label weeks end before them."""
     known = [t for t in cutoffs if t + gap + HORIZON <= v]
     val = [t for t in known if t > known[-1] - pd.Timedelta(days=7)]
     train = [t for t in known if t + gap + HORIZON <= val[0]]

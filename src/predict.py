@@ -1,10 +1,7 @@
-"""Final prediction: the 6 activities of every user in test_input.csv for 2026/11/22 00:00 - 11/29 00:00 (Taiwan).
+"""Final prediction for the test week 11/22 00:00 - 11/29 00:00 (Taiwan) -> output_<student_id>.csv.
 
-Our data ends at 2026-11-18 16:00 UTC (= 11/19 00:00 Taiwan, the test seed time). The test week starts 3 days
-later, 2026-11-21 16:00 UTC (= 11/22 00:00 Taiwan), so training seeds use the same 3-day gap: labels in
-[t + 3 d, t + 10 d).
-RelGNN is trained on all labelled daily cutoffs (the last labelled week selects the epoch), several models are
-averaged, and the plug-in expected-F1 rule gives the 0/1 predictions.
+Seed time = end of the data = 2026-11-18 16:00 UTC (11/19 00:00 Taiwan); the test week starts 3 days later, so
+training uses the same 3-day gap. 2 RelGNN models are averaged; the plug-in decision gives the 0/1 output.
 
     python src/predict.py --data data --test_input assignment2/submission/test_input.csv --out .
 """
@@ -12,7 +9,7 @@ import argparse
 import os
 import time
 
-os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")  # deterministic cuBLAS (set before CUDA starts)
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")  # deterministic cuBLAS
 
 import numpy as np
 import pandas as pd
@@ -30,8 +27,7 @@ ap.add_argument("--test_input", default="assignment2/submission/test_input.csv")
 ap.add_argument("--student_id", default="414540015")
 ap.add_argument("--test_time", default="2026-11-18 16:00", help="seed time of the test week (UTC) = end of our data")
 ap.add_argument("--test_week", default="2026-11-21 16:00", help="start of the test week (UTC) = 11/22 00:00 Taiwan")
-ap.add_argument("--start", default="2026-06-15 16:00",
-                help="first training cutoff (UTC) whose user-selection window lies inside the data (from 2026-03-01)")
+ap.add_argument("--start", default="2026-06-15 16:00", help="first training cutoff (UTC)")
 ap.add_argument("--seeds", type=int, default=2, help="number of RelGNN models averaged")
 ap.add_argument("--out", default=".")
 a = ap.parse_args()
@@ -46,7 +42,7 @@ if data.data_end < T - pd.Timedelta(hours=1):
 cutoffs = task.labelled_cutoffs(data, a.start)
 train_c, val_c = task.split_by_time(cutoffs, cutoffs[-1] + gap + HORIZON, gap)  # all labelled cutoffs are usable
 ids = pd.read_csv(a.test_input).UserID.astype(np.int64).to_numpy()
-known = np.isin(ids, data.row_id.index)  # all test users are cohort users; this only guards the output format
+known = np.isin(ids, data.row_id.index)  # guard only: all test users are in the data
 print(f"data end {data.data_end}; test seed time {T}, gap {gap}; {len(ids)} test users "
       f"({(~known).sum()} unknown); train cutoffs {train_c[0]:%m-%d} .. {train_c[-1]:%m-%d}, "
       f"validation {val_c[0]:%m-%d} .. {val_c[-1]:%m-%d}", flush=True)

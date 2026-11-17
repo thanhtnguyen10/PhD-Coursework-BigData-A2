@@ -1,17 +1,8 @@
-"""Relational entity graph of the 8 tables.
+"""8 tables -> relational entity graph (RelBench make_pkey_fkey_graph, relgnn/rel_graph.py).
 
-The graph is built by RelBench's `make_pkey_fkey_graph` (relgnn/rel_graph.py, from the official RelGNN repository):
-every table is a node type, every row a node, every foreign key an edge type `f2p_<fk>` plus its reverse
-`rev_f2p_<fk>`; node features are the table's columns (encoded later by PyTorch Frame) and `time` is each row's
-time, used by the temporal neighbour sampler.
-
-This file decides what goes into the graph:
-  * row time = the table's row-time column (first_seen_at or created_at, as in the course README.md and SCHEMA.md), so sampling at
-    seed time t only reaches rows that exist at t;
-  * the columns known only later are not used at all: PullRequests.merged_at, PullRequests.merged_by_id (also not
-    used as a foreign key, so a merge after t can never appear as an edge), PullRequests.closed_at,
-    Issues.closed_at, Issues.state_reason, PRReviews.dismissed_at;
-  * ids, codes, masked text (branch names, titles, ...) and absolute timestamps are not used as features.
+Row = node, foreign key = edge type (+ reverse), node time = row time (first_seen_at or created_at).
+Known-later columns (merged_at, merged_by_id, closed_at, state_reason, dismissed_at) are not used at all;
+ids, codes, masked text and absolute timestamps are not features.
 """
 import pandas as pd
 from torch_frame import stype
@@ -24,7 +15,7 @@ def _cat(s):
 
 
 def _fk(s):
-    return s.astype("float64")  # NaN = no foreign key (skipped by make_pkey_fkey_graph)
+    return s.astype("float64")  # NaN = no link
 
 
 def _num(s, fill):
@@ -80,7 +71,7 @@ def build_database(data):
             "ref_type": _cat(s.ref_type), "is_new_ref": _cat(s.is_new_ref), "time": s.created_at}),
             {"user_id": "Users", "repo_id": "Repositories"}, "push_id", "time"),
     }
-    col_to_stype = {}  # node features: all columns except primary key, foreign keys and row time
+    col_to_stype = {}  # features: all columns except keys and row time
     for name, tab in tables.items():
         cols = [col for col in tab.df.columns if col not in (tab.pkey_col, tab.time_col, *tab.fkey_col_to_pkey_table)]
         col_to_stype[name] = {col: stype.numerical if tab.df[col].dtype.kind == "f" else stype.categorical for col in cols}
@@ -88,6 +79,6 @@ def build_database(data):
 
 
 def build_graph(data):
-    """Returns the HeteroData graph and the PyTorch Frame column statistics."""
+    """HeteroData graph and PyTorch Frame column statistics."""
     db, col_to_stype = build_database(data)
     return make_pkey_fkey_graph(db, col_to_stype_dict=col_to_stype)

@@ -1,32 +1,24 @@
-"""Assignment data: the 8 tables written by the course script preprocess.py, the cohort activity log, the
-test-user rule and the 6 labels.
-
-`data_root` is the output folder of
-    python assignment2/scripts/preprocess.py --raw RAW_DATA_FOLDER --out data_root
-(it contains db/*.parquet).
-"""
+"""The 8 tables from the course preprocess.py (<data_root>/db/*.parquet), the test-user rule and the labels."""
 import os
 
 import numpy as np
 import pandas as pd
 
 TARGETS = ["open_pr", "open_issue", "issue_comment", "pr_review", "pr_review_comment", "push"]
-GAP = pd.Timedelta(days=1)            # default gap: seed time t (00:00 Taiwan) -> start of the label week (next day 00:00)
-HORIZON = pd.Timedelta(days=7)        # length of the predicted week
-# Test-user rule, reproduced exactly on test_input.csv (4,465 users): cohort users with >= 3 activity records in the
-# 90 days before 2026-11-04 12:00 UTC, i.e. 17 d 4 h before the start of the test week (2026-11-21 16:00 UTC).
+GAP = pd.Timedelta(days=1)            # seed time t -> label-week start (default; predict.py uses 3 days)
+HORIZON = pd.Timedelta(days=7)        # label-week length
+# test-user rule (gives exactly test_input.csv): >= 3 records in the 90 days before label-week start - 17 d 4 h
 SELECT_LEAD = pd.Timedelta(days=17, hours=4)
 SELECT_WINDOW = pd.Timedelta(days=90)
 SELECT_MIN = 3
 
 
 class AssignmentData:
-    """Cohort activity log: one row per target-type activity with two times,
-    `t` = when the activity happened (labels) and `seen` = the row time (when the row exists in the data)."""
+    """Cohort activity log: one row per activity, with `t` (activity time, for labels) and `seen` (row time)."""
 
     def __init__(self, data_root, gap=GAP):
         self.root = data_root
-        self.gap = gap  # seed time t -> start of the label week [t + gap, t + gap + 7 d)
+        self.gap = gap  # label week = [t + gap, t + gap + 7 d)
         users = self.read("Users", ["user_id", "github_user_id", "is_cohort"])
         prs = self.read("PullRequests", ["author_id", "created_at", "first_seen_at"])
         issues = self.read("Issues", ["author_id", "is_pull_request", "created_at", "first_seen_at"])
@@ -49,8 +41,7 @@ class AssignmentData:
         ev = ev[ev.user_id.isin(set(self.cohort))]
         ev["user_id"] = ev.user_id.astype(np.int64)
         self.events = ev.sort_values("t").reset_index(drop=True)
-        # end of the processed period, rounded up to the hour (hour files; the submitted run ends at
-        # 2026-11-18 16:00 UTC = 11/19 00:00 Taiwan)
+        # end of the data, rounded up to the hour
         self.data_end = max(icom.created_at.max(), prs.first_seen_at.max(), issues.first_seen_at.max(),
                             reviews.first_seen_at.max(), pushes.created_at.max()).ceil("h")
 
@@ -58,8 +49,7 @@ class AssignmentData:
         return pd.read_parquet(os.path.join(self.root, "db", f"{table}.parquet"), columns=columns)
 
     def select_users(self, t):
-        """Test-user rule: cohort users with >= 3 activity records in the 90 days before the start of the label
-        week minus 17 d 4 h (only rows that exist at that time)."""
+        """Cohort users with >= 3 records in the 90 days before label-week start - 17 d 4 h (rows visible then)."""
         s = t + self.gap - SELECT_LEAD
         e = self.events
         e = e[(e.seen < s) & (e.t >= s - SELECT_WINDOW) & (e.t < s)]

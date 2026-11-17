@@ -1,15 +1,9 @@
-"""RelGNN model, temporal neighbour loader, training loop and inference.
-
-Follows the official RelGNN code (https://github.com/snap-stanford/RelGNN, commit cffdb8b):
-  * atomic routes and model: examples/relgnn_task_node.py
-      atomic_routes = get_atomic_routes(data.edge_types)
-      RelGNN_Model(data, col_stats_dict, out_channels, norm="batch_norm", atomic_routes=..., **model_config)
-  * model / loader settings: examples/utils.py `get_configs` (2 layers, 128 channels, sum aggregation,
-    128 neighbours halved per hop, "directional" subgraphs); 8 heads, within the 2-32 used there
-  * temporal NeighborLoader (time_attr="time", temporal_strategy="uniform"): examples/relgnn_task_node.py
-  * training loop: examples/gnn_node.py (Adam, lr 0.005, 10 epochs, BCEWithLogitsLoss for multi-label targets,
-    keep the epoch with the best validation `multilabel_auprc_macro`, relbench/metrics.py); we cap an epoch at
-    500 steps instead of 2000 to keep the training time manageable (about 75 minutes per model on one RTX 3090)
+"""RelGNN model, temporal loader, training and inference, as in the official RelGNN examples
+(https://github.com/snap-stanford/RelGNN, commit cffdb8b):
+  * atomic routes, RelGNN_Model, temporal loader, BCE loss, best epoch by multilabel_auprc_macro: relgnn_task_node.py
+  * 2 layers, 128 channels, sum aggregation, 128 neighbours halved per hop, directional subgraphs: utils.py
+    (8 heads, one of the values used there)
+  * Adam lr 0.005, 10 epochs: gnn_node.py; an epoch is capped at 500 steps instead of 2000 (about 75 min per model)
 """
 import copy
 import math
@@ -33,8 +27,7 @@ TRAIN = dict(lr=0.005, epochs=10, max_steps_per_epoch=500)
 
 
 def make_loader(graph, table, shuffle, workers=8):
-    """Temporal neighbour sampling around (user, seed time) seeds. The sampler keeps rows with time <= seed time;
-    seeds are placed at t - 1 s so that only rows with row time < t are used."""
+    """Temporal sampling: seeds at t - 1 s, so only rows with row time < t are used."""
     seed_time = torch.from_numpy(to_unix_time(table.time.astype("datetime64[ns]")) - 1)
     target = torch.from_numpy(table[TARGETS].to_numpy(np.float32))
     return NeighborLoader(graph, time_attr="time", input_nodes=(ENTITY, torch.from_numpy(table.user_id.to_numpy(np.int64))),
@@ -55,7 +48,7 @@ def predict_proba(model, loader, device):
 
 def fit(graph, col_stats, train_table, val_table, device, seed=0, log=print):
     seed_everything(seed)
-    torch.use_deterministic_algorithms(True, warn_only=True)  # reproducible runs (warns where CUDA has no deterministic kernel)
+    torch.use_deterministic_algorithms(True, warn_only=True)  # reproducible runs
     model = make_model(graph, col_stats, device)
     optimizer = torch.optim.Adam(model.parameters(), lr=TRAIN["lr"])
     loss_fn = torch.nn.BCEWithLogitsLoss()
