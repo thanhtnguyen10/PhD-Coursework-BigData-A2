@@ -1,11 +1,11 @@
 """Download the GH Archive hour files used by this project (https://www.gharchive.org) with wget, as in the
 course README.
 
-Default period (the one used for the submitted output): hour files 2026-03-01-0 to 2026-11-20-15 (UTC),
-i.e. all events from 2026-03-01 00:00 UTC to 2026-11-20 16:00 UTC = 2026-03-01 08:00 to 2026-11-21 00:00 Taiwan.
+Default period (the one used for the submitted output): hour files 2026-03-01-0 to 2026-11-18-15 (UTC),
+i.e. all events from 2026-03-01 00:00 UTC to 2026-11-18 16:00 UTC = 2026-03-01 08:00 to 2026-11-19 00:00 Taiwan.
 
     python src/download.py --raw RAW_DATA_FOLDER
-    python src/download.py --raw RAW_DATA_FOLDER --start "2026-03-01 00:00" --end "2026-11-20 15:00"
+    python src/download.py --raw RAW_DATA_FOLDER --start "2026-03-01 00:00" --end "2026-11-18 15:00"
 
 Files already in RAW_DATA_FOLDER are skipped. A file is saved only when wget finished without error, so an
 interrupted download never leaves a truncated file. Hours that are still missing afterwards are listed (a few
@@ -29,7 +29,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", required=True, help="folder for the GH Archive hour files")
     ap.add_argument("--start", default="2026-03-01 00:00", help="first hour (UTC)")
-    ap.add_argument("--end", default="2026-11-20 15:00", help="last hour (UTC), inclusive")
+    ap.add_argument("--end", default="2026-11-18 15:00", help="last hour (UTC), inclusive")
     ap.add_argument("--workers", type=int, default=8)
     a = ap.parse_args()
     os.makedirs(a.raw, exist_ok=True)

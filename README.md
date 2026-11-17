@@ -14,8 +14,8 @@ names its source file and its (minimal) changes.
 All data comes from **GH Archive** (https://www.gharchive.org/), a public archive of GitHub events with one file
 per hour. We acknowledge GH Archive as the data source of this project.
 
-- **Period used:** the GH Archive hour files `2026-03-01-0.json.gz` to `2026-11-20-15.json.gz`, i.e. all events
-  from 2026-03-01 00:00 to 2026-11-20 16:00 UTC (= 2026-03-01 08:00 to 2026-11-21 00:00 Taiwan time).
+- **Period used:** the GH Archive hour files `2026-03-01-0.json.gz` to `2026-11-18-15.json.gz`, i.e. all events
+  from 2026-03-01 00:00 to 2026-11-18 16:00 UTC (= 2026-03-01 08:00 to 2026-11-19 00:00 Taiwan time).
 - The hour files are turned into the 8 anonymized tables by the course script `scripts/preprocess.py`, run
   unmodified. Only these 8 tables are used.
 
@@ -25,7 +25,7 @@ per hour. We acknowledge GH Archive as the data source of this project.
 # 1. course repository: preprocess.py, test_input.csv, evaluate.py
 git clone https://github.com/nycubigdata-2026fall/BigData2026-Assignment2.git assignment2
 
-# 2. GH Archive hour files 2026-03-01-0 ... 2026-11-20-15 (UTC): 6,352 files, roughly 170 GB
+# 2. GH Archive hour files 2026-03-01-0 ... 2026-11-18-15 (UTC): 6,304 files, roughly 170 GB
 python src/download.py --raw gharchive
 
 # 3. the 8 tables (course script, unmodified): writes data/db/*.parquet
@@ -52,7 +52,7 @@ hour files end up in one folder.
   CUDA 12.4, the versions below), two training runs with the same seed gave identical predictions.
 - A different GPU or different library versions can change the last digits of the floating-point results, and
   so a few 0/1 decisions of borderline users.
-- The output depends on the hour files processed: use exactly 2026-03-01-0 to 2026-11-20-15 (UTC).
+- The output depends on the hour files processed: use exactly 2026-03-01-0 to 2026-11-18-15 (UTC).
 
 ## Environment
 
@@ -80,11 +80,12 @@ so `predict.py` (2 models) takes about 2.5 hours.
 2. **Task table** (`src/task.py`):
    - Seeds are (user, cutoff *t*) for daily cutoffs at 16:00 UTC (00:00 Taiwan) from 2026-06-15 on (the first
      cutoff whose user-selection window lies inside the data).
-   - Users are chosen with the test-user rule: cohort users with ≥ 3 activity records in the 90 days before
-     *t* − 16 days 4 hours. At the test seed time this is 2026-11-04 12:00 UTC, and the rule gives exactly the
-     4,465 users of `test_input.csv`.
-   - Labels are the 6 activities in [*t* + 1 day, *t* + 8 days). For the test, *t* = 2026-11-20 16:00 UTC, so
-     the label week is 11/22 00:00 – 11/29 00:00 Taiwan.
+   - Labels are the 6 activities in the week [*t* + gap, *t* + gap + 7 days). For the test, *t* = 2026-11-18
+     16:00 UTC (11/19 00:00 Taiwan, the end of our data) and the gap is 3 days, so the label week is the test week
+     11/22 00:00 – 11/29 00:00 Taiwan; training seeds use the same 3-day gap. (`validate.py` uses a 1-day gap.)
+   - Users are chosen with the test-user rule: cohort users with ≥ 3 activity records in the 90 days before the
+     start of the label week minus 17 days 4 hours. For the test week this is 2026-11-04 12:00 UTC, and the rule
+     gives exactly the 4,465 users of `test_input.csv`.
 3. **RelGNN** (`src/train.py`, `src/relgnn/`):
    - Atomic routes come from the schema: `dim-dim` for a single foreign key, `dim-fact-dim` for each pair of
      foreign keys of a table.

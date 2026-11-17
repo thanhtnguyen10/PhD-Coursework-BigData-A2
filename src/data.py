@@ -11,11 +11,11 @@ import numpy as np
 import pandas as pd
 
 TARGETS = ["open_pr", "open_issue", "issue_comment", "pr_review", "pr_review_comment", "push"]
-GAP = pd.Timedelta(days=1)            # end of our data (00:00 Taiwan) -> start of the predicted week (00:00 Taiwan, next day)
+GAP = pd.Timedelta(days=1)            # default gap: seed time t (00:00 Taiwan) -> start of the label week (next day 00:00)
 HORIZON = pd.Timedelta(days=7)        # length of the predicted week
 # Test-user rule, reproduced exactly on test_input.csv (4,465 users): cohort users with >= 3 activity records in the
-# 90 days before 2026-11-04 12:00 UTC, i.e. 16 d 4 h before the test seed time 2026-11-20 16:00 UTC.
-SELECT_LAG = pd.Timedelta(days=16, hours=4)
+# 90 days before 2026-11-04 12:00 UTC, i.e. 17 d 4 h before the start of the test week (2026-11-21 16:00 UTC).
+SELECT_LEAD = pd.Timedelta(days=17, hours=4)
 SELECT_WINDOW = pd.Timedelta(days=90)
 SELECT_MIN = 3
 
@@ -24,8 +24,9 @@ class AssignmentData:
     """Cohort activity log: one row per target-type activity with two times,
     `t` = when the activity happened (labels) and `seen` = the row time (when the row exists in the data)."""
 
-    def __init__(self, data_root):
+    def __init__(self, data_root, gap=GAP):
         self.root = data_root
+        self.gap = gap  # seed time t -> start of the label week [t + gap, t + gap + 7 d)
         users = self.read("Users", ["user_id", "github_user_id", "is_cohort"])
         prs = self.read("PullRequests", ["author_id", "created_at", "first_seen_at"])
         issues = self.read("Issues", ["author_id", "is_pull_request", "created_at", "first_seen_at"])
@@ -49,7 +50,7 @@ class AssignmentData:
         ev["user_id"] = ev.user_id.astype(np.int64)
         self.events = ev.sort_values("t").reset_index(drop=True)
         # end of the processed period, rounded up to the hour (hour files; the submitted run ends at
-        # 2026-11-20 16:00 UTC = 11/21 00:00 Taiwan)
+        # 2026-11-18 16:00 UTC = 11/19 00:00 Taiwan)
         self.data_end = max(icom.created_at.max(), prs.first_seen_at.max(), issues.first_seen_at.max(),
                             reviews.first_seen_at.max(), pushes.created_at.max()).ceil("h")
 
@@ -57,17 +58,17 @@ class AssignmentData:
         return pd.read_parquet(os.path.join(self.root, "db", f"{table}.parquet"), columns=columns)
 
     def select_users(self, t):
-        """Test-user rule: cohort users with >= 3 activity records in the 90 days before t - 16 d 4 h
-        (only rows that exist at that time)."""
-        s = t - SELECT_LAG
+        """Test-user rule: cohort users with >= 3 activity records in the 90 days before the start of the label
+        week minus 17 d 4 h (only rows that exist at that time)."""
+        s = t + self.gap - SELECT_LEAD
         e = self.events
         e = e[(e.seen < s) & (e.t >= s - SELECT_WINDOW) & (e.t < s)]
         n = e.groupby("user_id").size()
         return np.sort(n.index[n >= SELECT_MIN].to_numpy())
 
     def labels(self, t, users):
-        """1 if the user did the activity in [t + 1 d, t + 8 d), else 0."""
+        """1 if the user did the activity in [t + gap, t + gap + 7 d), else 0."""
         e = self.events
-        e = e[(e.t >= t + GAP) & (e.t < t + GAP + HORIZON)]
+        e = e[(e.t >= t + self.gap) & (e.t < t + self.gap + HORIZON)]
         y = pd.crosstab(e.user_id, e.type).reindex(index=users, columns=range(len(TARGETS)), fill_value=0)
         return (y.to_numpy() > 0).astype(np.int8)
