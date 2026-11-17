@@ -9,7 +9,7 @@ Follows the official RelGNN code (https://github.com/snap-stanford/RelGNN, commi
   * temporal NeighborLoader (time_attr="time", temporal_strategy="uniform"): examples/relgnn_task_node.py
   * training loop: examples/gnn_node.py (Adam, lr 0.005, 10 epochs, BCEWithLogitsLoss for multi-label targets,
     keep the epoch with the best validation `multilabel_auprc_macro`, relbench/metrics.py); we cap an epoch at
-    500 steps instead of 2000 to keep one training run under an hour
+    500 steps instead of 2000 to keep the training time manageable (about 75 minutes per model on one RTX 3090)
 """
 import copy
 import math
